@@ -42,9 +42,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-import com.yunfan.encoder.filter.AlphaBlendFilter;
-import com.yunfan.encoder.filter.BeautyFilter;
+import com.yunfan.encoder.effect.filter.AlphaBlendFilter;
 import com.yunfan.encoder.filter.FaceUnityFilter;
+import com.yunfan.encoder.filter.YfBlurBeautyFilter;
 import com.yunfan.encoder.widget.RecordMonitor;
 import com.yunfan.encoder.widget.YfEncoderKit;
 import com.yunfan.encoderdemo.consts.Const;
@@ -78,7 +78,7 @@ public class LiveRecorderActivity extends BaseActivity {
     private int surfaceWidth;
     private int surfaceHeight;
     private YfEncoderKit mYfEncoderKit;
-    private BeautyFilter mBeautyFilter;
+    private YfBlurBeautyFilter mBeautyFilter;
     //const
     private final String CACHE_DIRS = Environment.getExternalStorageDirectory().getPath() + "/yunfanencoder";
     private final int VIDEO_WIDTH = 640;
@@ -280,7 +280,7 @@ public class LiveRecorderActivity extends BaseActivity {
                 .setRecordMonitor(mRecordMonitor)//设置回调
                 .setDefaultCamera(true)//设置默认打开摄像头---true为前置，false为后置
                 .openCamera(s);//设置预览窗口
-        mBeautyFilter = new BeautyFilter();
+        mBeautyFilter = new YfBlurBeautyFilter(this);
         mBeautyFilter.setIndex(BEAUTY_INDEX);
         mYfEncoderKit.addFilter(mBeautyFilter);//默认打开滤镜
         mSetBeauty = true;
@@ -686,7 +686,7 @@ public class LiveRecorderActivity extends BaseActivity {
     private void changeBeauty(int level) {
         if (level != 0) {
             if (mBeautyFilter == null) {
-                mBeautyFilter = new BeautyFilter();
+                mBeautyFilter = new YfBlurBeautyFilter(this);
                 mBeautyFilter.setIndex(BEAUTY_INDEX);
             }
             if (!mSetBeauty) mYfEncoderKit.addFilter(mBeautyFilter);
@@ -763,10 +763,10 @@ public class LiveRecorderActivity extends BaseActivity {
 
 
         @Override
-        public void onInfo(int what, int arg1, int arg2, Object obj) {
+        public void onInfo(int what, double arg1, double arg2, Object obj) {
             switch (what) {
                 case YfEncoderKit.INFO_IP:
-                    currentConnectedIP = Util.intToIp(arg1);
+                    currentConnectedIP = Util.intToIp((int) arg1);
                     Log.d(TAG, "实际推流的IP地址:" + currentConnectedIP);
 //                    logRecoder.writeLog("IP:" + currentConnectedIP);
 
@@ -777,16 +777,16 @@ public class LiveRecorderActivity extends BaseActivity {
                     break;
                 case YfEncoderKit.INFO_PUSH_SPEED:
                     Log.d(TAG, "mCurrentSpeed: " + mCurrentSpeed);
-                    mCurrentSpeed = arg1;
+                    mCurrentSpeed = (int) arg1;
                     break;
                 case YfEncoderKit.INFO_BITRATE_CHANGED:
-                    mCurrentBitrate = arg1;
+                    mCurrentBitrate = (int) arg1;
                     break;
                 case YfEncoderKit.INFO_CURRENT_BUFFER:
-                    mCurrentBufferMs = arg1;
+                    mCurrentBufferMs = (int) arg1;
                     break;
                 case YfEncoderKit.INFO_FRAME:
-                    mCurrentFPS = arg1;
+                    mCurrentFPS = (int) arg1;
                     //mAvgCostTimeMS = arg2;
                     break;
             }
