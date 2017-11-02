@@ -88,12 +88,12 @@ dependencies {
 //    compile project(':YfKit')
 //    compile project(':YfAuthentication')
 
-    compile 'com.github.YfCloudKit.YfKitLibrary:FFMpeg-decoder-encoder-https:v1.0.3'
-    compile 'com.github.YfCloudKit.YfKitLibrary:MuxerLib-stream:v1.0.3'
-    compile 'com.github.YfCloudKit.YfKitLibrary:YfAR:v1.0.3'
-    compile 'com.github.YfCloudKit.YfKitLibrary:YfAuthentication:v1.0.3'
-    compile 'com.github.YfCloudKit.YfKitLibrary:YfEncoderKit:v1.0.3'
+    compile 'com.github.YfCloudKit.YfKitLibrary:FFMpeg-decoder-encoder-https:b049686d82'
+    compile 'com.github.YfCloudKit.YfKitLibrary:MuxerLib-stream:b049686d82'
+    compile 'com.github.YfCloudKit.YfKitLibrary:YfAR:b049686d82'
+    compile 'com.github.YfCloudKit.YfKitLibrary:YfAuthentication:b049686d82'
+    compile 'com.github.YfCloudKit.YfKitLibrary:YfEncoderKit:b049686d82'
 //    compile 'com.github.YfCloudKit.YfKitLibrary:YfFilter:-SNAPSHOT'
 //    compile 'com.github.YfCloudKit.YfKitLibrary:YfMediaPlayer:-SNAPSHOT'
-    compile 'com.github.YfCloudKit.YfKitLibrary:YfK2Pagent:v1.0.3'
+    compile 'com.github.YfCloudKit.YfKitLibrary:YfK2Pagent:b049686d82'
 }

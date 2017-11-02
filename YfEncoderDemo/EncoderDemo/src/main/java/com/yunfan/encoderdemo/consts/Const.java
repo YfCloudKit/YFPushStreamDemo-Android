@@ -11,6 +11,7 @@ public class Const {
     public static final String KEY_LIVE_URL = "KEY_LIVE_URL";
     public static final String KEY_RECORD_TYPE= "KEY_RECORD_TYPE";
     public static final String KEY_UDP = "KEY_UDP";
+    public static final String KEY_HEVC = "KEY_HEVC";
     public static final String KEY_RECORD_PATH = "KEY_RECORD_PATH";
 
     public static final int TYPE_LIVE = 0x0101;

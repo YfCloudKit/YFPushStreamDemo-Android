@@ -30,6 +30,7 @@
     <string name="menu_flip_on">镜像/开</string>
     <string name="menu_adaptive_bitrate">自适应码率</string>
     <string name="menu_weak_net_live">弱网直播</string>
+    <string name="menu_hevc_setting">编码格式</string>
     <string name="menu_h264">H.265</string>
     <string name="menu_mute_off">静音/关</string>
     <string name="menu_mute_on">静音/开</string>
@@ -54,6 +55,8 @@
     <string name="udp_tip_4">　udp:性能更好</string><!--fec:延迟更低　　-->
     <string name="udp_off">upd已关闭</string>
     <string name="udp_no_fec">udp已开启</string>
+    <string name="avc">H264</string>
+    <string name="hevc">H265</string>
     <string name="prompt">提示</string>
     <string name="end_live">结束直播</string>
     <string name="continue_live">继续直播</string>

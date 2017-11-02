@@ -58,7 +58,6 @@ public class MainActivity extends BaseActivity implements OnBannerListener {
     private TextView mTvUdpTip;
     private LinearLayout mLayoutSetBitrateFps;
     private ImageButton mIbSetting;
-    private ToggleButton mTbUDP;
     private long mFirstBackTime;
     private RelativeLayout mLayoutPreRecordSetting;
     private ToggleButton mTbScreenSettingRecord;
@@ -148,7 +147,6 @@ public class MainActivity extends BaseActivity implements OnBannerListener {
         Button btnStartVodRecord = (Button) findViewById(R.id.btn_start_vod_record);
         Button btnClose = (Button) findViewById(R.id.btn_close);
         mTbScreenSetting = (ToggleButton) findViewById(R.id.tb_screen_setting);
-        mTbUDP = (ToggleButton) findViewById(R.id.tb_udp);
         mIbSetting = (ImageButton) findViewById(R.id.ib_setting);
         mIbUdpTip = (ImageButton) findViewById(R.id.ib_udp_tip);
         mTvUdpTip = (TextView) findViewById(R.id.tv_weak_net);
@@ -275,7 +273,8 @@ public class MainActivity extends BaseActivity implements OnBannerListener {
                 mTbScreenSetting.isChecked() : mTbScreenSettingRecord.isChecked();
         String liveUrl = mEtLiveUrl.getText().toString();
         String recordPath = mEtRecordPath.getText().toString();
-        boolean enableUDP = mTbUDP.isChecked();
+        boolean enableUDP =((ToggleButton) findViewById(R.id.tb_udp)).isChecked();
+        boolean enableHEVC =((ToggleButton) findViewById(R.id.tb_hevc)).isChecked();
 
         if (!YfAuthentication.getInstance().isAuthenticateSucceed()) {
             Snackbar.make(mBanner, "鉴权未通过，不能推流，开始重新鉴权~", Snackbar.LENGTH_SHORT).show();
@@ -290,6 +289,7 @@ public class MainActivity extends BaseActivity implements OnBannerListener {
         intent.putExtra(Const.KEY_RECORD_PATH, recordPath);
         intent.putExtra(Const.KEY_RECORD_TYPE, recordType);
         intent.putExtra(Const.KEY_UDP, enableUDP);
+        intent.putExtra(Const.KEY_HEVC, enableHEVC);
         startActivity(intent);
     }
 

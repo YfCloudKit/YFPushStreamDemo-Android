@@ -114,6 +114,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@null"
+            android:checked="true"
             android:drawableTop="@drawable/select_adaptive_bitrate"
             android:textColor="@color/colorWhite"
             android:textOff="自适应码率"

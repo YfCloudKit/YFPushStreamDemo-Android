@@ -47,8 +47,9 @@ import com.yunfan.encoder.filter.FaceUnityFilter;
 import com.yunfan.encoder.filter.YfBlurBeautyFilter;
 import com.yunfan.encoder.widget.RecordMonitor;
 import com.yunfan.encoder.widget.YfEncoderKit;
-import com.yunfan.encoderdemo.consts.Const;
 import com.yunfan.encoderdemo.R;
+//import com.yunfan.encoderdemo.bean.StreamInfo;
+import com.yunfan.encoderdemo.consts.Const;
 import com.yunfan.encoderdemo.ui.adapter.MenuAdapter;
 import com.yunfan.encoderdemo.ui.fragment.BaseFragment;
 import com.yunfan.encoderdemo.ui.fragment.LiveMenuOneFragment;
@@ -58,9 +59,16 @@ import com.yunfan.encoderdemo.ui.widget.DataLogPopupWindow;
 import com.yunfan.encoderdemo.ui.widget.ScaleGLSurfaceView;
 import com.yunfan.encoderdemo.ui.widget.indicator.CircleIndicator;
 import com.yunfan.encoderdemo.utils.Util;
+import com.yunfan.net.K2Pagent;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
 
+//import top.eg100.code.excel.jxlhelper.ExcelManager;
 
 import static com.yunfan.encoderdemo.consts.Const.DEFAULT_BITRATE;
 import static com.yunfan.encoderdemo.consts.Const.DEFAULT_FRAME_RATE;
@@ -90,7 +98,7 @@ public class LiveRecorderActivity extends BaseActivity {
 
     private final int BEAUTY_INDEX = 1, LOGO_INDEX = 2, FACE_INDEX = 3;
     private boolean mSetBeauty;
-    private boolean mHardEncoder;
+    private boolean mHardEncoder = false;
     private boolean onServerConnected;
     private int mBitrate;
     private int mFrameRate;
@@ -102,6 +110,7 @@ public class LiveRecorderActivity extends BaseActivity {
     private int mRecordType;
     private ImageButton mIbRecordFinish;
     private boolean mEnableUdp;
+    private boolean mEnableHEVC;
     private RelativeLayout mRlVodSave;
     private TextView mTvTime;
     private CoordinatorLayout mContainer;
@@ -111,6 +120,8 @@ public class LiveRecorderActivity extends BaseActivity {
     private TextView mTvCurrentBitrate;
     private TextView mTvCurrentFps;
     private TextView mTvCurrentSpeed;
+    private TextView mTvUDPSpeed;
+    private TextView mTvUDPMsg;
     private RelativeLayout mLayoutDataLog;
     private View mViewParticle;
     private boolean mForceStop;
@@ -121,13 +132,14 @@ public class LiveRecorderActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Intent intent = getIntent();
-        mBitrate = intent.getIntExtra(Const.KEY_BITRATE, DEFAULT_BITRATE);
+        mCurrentBitrate = mBitrate = intent.getIntExtra(Const.KEY_BITRATE, DEFAULT_BITRATE);
         mFrameRate = intent.getIntExtra(Const.KEY_FRAME_RATE, DEFAULT_FRAME_RATE);
         mLandscape = intent.getBooleanExtra(Const.KEY_SCREEN_ORIENTATION, DEFAULT_LANDSCAPE);
         mRecordType = intent.getIntExtra(Const.KEY_RECORD_TYPE, Const.TYPE_LIVE);
         mLiveUrl = intent.getStringExtra(Const.KEY_LIVE_URL);
         mRecordPath = intent.getStringExtra(Const.KEY_RECORD_PATH);
         mEnableUdp = intent.getBooleanExtra(Const.KEY_UDP, false);
+        mEnableHEVC = intent.getBooleanExtra(Const.KEY_HEVC, false);
         Log.d(TAG, String.format(" mBitrate: %d mFrameRate: %d mIsLandscape: %s mLiveUrl: %s",
                 mBitrate, mFrameRate, mLandscape, mLiveUrl));
 
@@ -177,7 +189,8 @@ public class LiveRecorderActivity extends BaseActivity {
         mTvCurrentBitrate = (TextView) findViewById(R.id.tv_current_bitrate);
         mTvCurrentFps = (TextView) findViewById(R.id.tv_current_fps);
         mTvCurrentSpeed = (TextView) findViewById(R.id.tv_current_speed);
-
+        mTvUDPMsg = (TextView) findViewById(R.id.tv_udp_msg);
+        mTvUDPSpeed = (TextView) findViewById(R.id.tv_udp_speed);
         mIbRecordFinish.setVisibility(mRecordType == Const.TYPE_LIVE ? View.GONE : View.VISIBLE);
         //保存录制视频层
         mRlVodSave = (RelativeLayout) findViewById(R.id.rl_vod_save);
@@ -279,6 +292,7 @@ public class LiveRecorderActivity extends BaseActivity {
                 .enableFlipFrontCamera(true)//设置前置摄像头是否镜像处理，默认为false
                 .setRecordMonitor(mRecordMonitor)//设置回调
                 .setDefaultCamera(true)//设置默认打开摄像头---true为前置，false为后置
+                .setDropVideoFrameOnly(true)//设置默认打开只丢视频帧策略
                 .openCamera(s);//设置预览窗口
         mBeautyFilter = new YfBlurBeautyFilter(this);
         mBeautyFilter.setIndex(BEAUTY_INDEX);
@@ -341,12 +355,14 @@ public class LiveRecorderActivity extends BaseActivity {
         //设置编码参数：直播/录制、码率
         if (mRecordType == Const.TYPE_LIVE) {
             mYfEncoderKit.changeMode(YfEncoderKit.MODE_LIVE, mBitrate);
-//        mYfEncoderKit.setMaxReconnectCount(5);//自动重连次数，0代表不自动重连
             mYfEncoderKit.setAdjustQualityAuto(true, 300);//打开码率自适应，最低码率300k
             mYfEncoderKit.setBufferSizeBySec(1);//最多缓存1秒的数据，超过1秒则丢帧
             mYfEncoderKit.enableUDP(mEnableUdp);
+            mYfEncoderKit.enableHEVCEncoder(mEnableHEVC);
             mYfEncoderKit.enableHttpDNS(false);
             mYfEncoderKit.setLiveUrl(mLiveUrl);
+
+            mCurrentBitrate = mBitrate;
         } else {
             String recordName;
             try {
@@ -388,13 +404,17 @@ public class LiveRecorderActivity extends BaseActivity {
             mYfEncoderKit.release();
             mYfEncoderKit = null;
         }
+        addCommonInfo("停止推流");
+        exportInfo("final");
 
     }
 
     private void stopRecorder() {
+
         mHandler.removeCallbacks(mUpdateTimeRunnable);
         mYfEncoderKit.stopRecord();
         onServerConnected = false;
+
     }
 
 
@@ -424,7 +444,6 @@ public class LiveRecorderActivity extends BaseActivity {
     private void showStopRecordDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(LiveRecorderActivity.this);
         builder.setTitle(getResources().getString(R.string.prompt));
-
         if (mRecordType == Const.TYPE_LIVE) {
             builder.setNegativeButton(getResources().getString(R.string.end_live),
                     mAlertDialogClickListener);
@@ -514,17 +533,19 @@ public class LiveRecorderActivity extends BaseActivity {
     private final Runnable mUpdateDataLogRunnable = new Runnable() {
         @Override
         public void run() {
-            updateData(mCurrentBufferMs, mCurrentBitrate,
-                    mCurrentFPS, mCurrentSpeed);
+            updateData(mCurrentBufferMs, mCurrentBitrate == -1 ? mBitrate : mCurrentBitrate,
+                    mCurrentFPS, mCurrentSpeed, mUDPSendSpeed, mUDPRecSpeed, mUDPMsg);
             mHandler.postDelayed(this, 1000);
         }
     };
 
-    public void updateData(int bufferSize, int bitrate, int fps, int speed) {
+    public void updateData(double bufferSize, double bitrate, int fps, double speed, double udpSendSpeed, double udpRecSpeed, String udpMsg) {
         mTvCurrentBufferSize.setText(String.format("buffer-ms:%s", bufferSize));
         mTvCurrentBitrate.setText(String.format("bitrate:%s", bitrate));
         mTvCurrentSpeed.setText(String.format("speed:%s", speed));
         mTvCurrentFps.setText(String.format("fps:%s", fps));
+        mTvUDPSpeed.setText(String.format("udp send:%s , rec:%s", udpSendSpeed, udpRecSpeed));
+        mTvUDPMsg.setText(String.format("udp log:%s", udpMsg));
     }
 
     private boolean mSetLogo;
@@ -578,7 +599,11 @@ public class LiveRecorderActivity extends BaseActivity {
                     Log.d(TAG, "onChangeBitrate: " + bitrate);
 //                    mYfEncoderKit.setBitrate(bitrate);
                     if (mYfEncoderKit != null) {
-                        mYfEncoderKit.setAdjustQualityAuto(bitrate > 0, 300);
+                        boolean autoAdjustBitrate = bitrate > 0;
+                        mYfEncoderKit.setAdjustQualityAuto(autoAdjustBitrate, 300);
+                        Toast.makeText(LiveRecorderActivity.this, autoAdjustBitrate ?
+                                        "自适应码率已开启，最小码率300" : "自适应码率已关闭",
+                                Toast.LENGTH_SHORT).show();
                     }
                 }
 
@@ -707,29 +732,36 @@ public class LiveRecorderActivity extends BaseActivity {
             mHandler.postDelayed(mUpdateTimeRunnable, 1000);
         }
     };
-    private int mCurrentBitrate;
-    private int mCurrentBufferMs;
-    private int mCurrentSpeed;
+    private double mCurrentBitrate = -1;
+    private double mCurrentBufferMs;
     private int mCurrentFPS;
+    private double mCurrentSpeed;
+    private double mUDPSendSpeed;
+    private double mUDPRecSpeed;
+    private String mUDPMsg;
     private RecordMonitor mRecordMonitor = new RecordMonitor() {
 
         private String currentConnectedIP;
 
         @Override
         public void onServerConnected() {
-            onServerConnected = true;
-            Snackbar.make(mContainer, "成功连接服务器，编码方式:" +
-                    (mYfEncoderKit.getEncodeMode() ? "硬编" : "软编"), Snackbar.LENGTH_SHORT).show();
-            mHandler.post(mUpdateTimeRunnable);
+            if (mYfEncoderKit != null) {
+                onServerConnected = true;
+                Snackbar.make(mContainer, "成功连接服务器，编码方式:" +
+                        (mYfEncoderKit.getEncodeMode() ? "硬编" : "软编"), Snackbar.LENGTH_SHORT).show();
+                mHandler.post(mUpdateTimeRunnable);
+            }
         }
 
         @Override
         public void onError(int mode, int err, String msg) {
+            addCommonInfo("推流异常");
             mHandler.removeCallbacks(mUpdateTimeRunnable);
             Toast.makeText(LiveRecorderActivity.this, "onError: " + msg, Toast.LENGTH_SHORT).show();
             onServerConnected = false;
             if (!mForceStop)
                 startRecorder(false);
+
             Log.i(TAG, "####### error: " + err + " " + msg);
         }
 
@@ -767,9 +799,9 @@ public class LiveRecorderActivity extends BaseActivity {
             switch (what) {
                 case YfEncoderKit.INFO_IP:
                     currentConnectedIP = Util.intToIp((int) arg1);
+                    addCommonInfo("推流成功");
                     Log.d(TAG, "实际推流的IP地址:" + currentConnectedIP);
 //                    logRecoder.writeLog("IP:" + currentConnectedIP);
-
                     break;
                 case YfEncoderKit.INFO_DROP_FRAMES:
                     Log.d(TAG, "frames had been dropped");
@@ -777,22 +809,123 @@ public class LiveRecorderActivity extends BaseActivity {
                     break;
                 case YfEncoderKit.INFO_PUSH_SPEED:
                     Log.d(TAG, "mCurrentSpeed: " + mCurrentSpeed);
-                    mCurrentSpeed = (int) arg1;
+                    mCurrentSpeed = arg1;
+                    addCommonInfo(null);
                     break;
                 case YfEncoderKit.INFO_BITRATE_CHANGED:
-                    mCurrentBitrate = (int) arg1;
+                    Log.d(TAG, "onInfo: INFO_BITRATE_CHANGED " + arg1);
+                    mCurrentBitrate = arg1;
                     break;
                 case YfEncoderKit.INFO_CURRENT_BUFFER:
-                    mCurrentBufferMs = (int) arg1;
+                    mCurrentBufferMs = arg1;
                     break;
                 case YfEncoderKit.INFO_FRAME:
                     mCurrentFPS = (int) arg1;
-                    //mAvgCostTimeMS = arg2;
+                    break;
+                case YfEncoderKit.INFO_UDP_SPEED:
+                    mUDPSendSpeed = arg1;
+                    mUDPRecSpeed = arg2;
+                    break;
+                case YfEncoderKit.INFO_UDP_MSG:
+                    mUDPMsg = (String) obj;
+                    break;
+                case YfEncoderKit.INFO_ADAPTIVE_BITRATE_CALLBACK:
+                    switch ((int) obj) {
+                        case YfEncoderKit.EVENT_BUFFER_INCREASING:
+                            addCommonInfo("缓存持续过高");
+                            break;
+                        case YfEncoderKit.EVENT_DECREASE_BITRATE:
+                            addCommonInfo("降低码率至：" + mCurrentBitrate);
+                            break;
+                        case YfEncoderKit.EVENT_DROP_FRAME:
+                            addCommonInfo("丢帧");
+                            break;
+                        case YfEncoderKit.EVENT_RETURN_LAST_SMOOTHING_BITRATE:
+                            addCommonInfo("回归码率");
+                            break;
+                        case YfEncoderKit.EVENT_INCREASE_BITRATE:
+                            addCommonInfo("提高码率至：" + mCurrentBitrate);
+                            break;
+                    }
                     break;
             }
         }
 
     };
+
+//    List<StreamInfo> mInfoList = new ArrayList<>();
+
+    private void addCommonInfo(String describe) {
+//        StreamInfo lastInfo;
+//        if (mInfoList.size() > 0) {
+//            lastInfo = mInfoList.get(mInfoList.size() - 1);
+//        } else {
+//            lastInfo = new StreamInfo();
+//            mInfoList.add(lastInfo);
+//        }
+//        if (describe == null) {
+//            StreamInfo info = new StreamInfo();
+//            info.setbBitrate((int) mCurrentBitrate);
+//            info.setcPredictedBitrate((int) (mCurrentBitrate / VIDEO_FRAME_RATE * mCurrentFPS));
+//            info.seteBufferMs((int) mCurrentBufferMs);
+//            info.seteChangeBuffer((int) (Math.max(mCurrentBufferMs - lastInfo.geteBufferMs(), 0)));
+//            info.setfFps(mCurrentFPS);
+//            info.setdSpeed((int) mCurrentSpeed);
+//            info.setgDescribe(describe);
+//            if (mYfEncoderKit != null) {
+//                K2Pagent.RunInfo runInfo = mYfEncoderKit.getRunInfo();
+//                if (runInfo != null) {
+//                    info.sethUDPSpeed((int) mUDPSendSpeed);
+//                    info.setiSndRtoDuration(runInfo.sndRtoDuration);
+//                    info.setjSndRto(runInfo.sndRto);
+//                    info.setlRcvWnd(runInfo.rcvWnd);
+//                    info.setkSndWnd(runInfo.sndWnd);
+//                }
+//            }
+//            final Calendar mCalendar = Calendar.getInstance();
+//            mCalendar.setTimeInMillis(System.currentTimeMillis());
+//            info.setaTimeStamp(mCalendar.get(Calendar.HOUR) + ":" + mCalendar.get(Calendar.MINUTE) + ":" + mCalendar.get(Calendar.SECOND) + ":" + mCalendar.get(Calendar.MILLISECOND));
+//            mInfoList.add(info);
+//        } else {
+//            lastInfo.setgDescribe(lastInfo.getgDescribe() == null ? describe : lastInfo.getgDescribe() + "," + describe);
+//            if (lastInfo.getgDescribe() != null && lastInfo.getgDescribe().contains("丢帧")) {
+//                lastInfo.seteBufferMs((int) mCurrentBufferMs);
+//            }
+//        }
+//        if (mInfoList.size() % 600 == 0) {
+//            exportInfo(mInfoList.size() + "");
+//        }
+    }
+
+    private void exportInfo(final String exName) {
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                try {
+//                    String filePath = CACHE_DIRS;
+//                    File dir = new File(filePath);
+//                    if (!dir.exists()) {
+//                        dir.mkdirs();
+//                    }
+//                    String usersFilePath = filePath + "/" + mLiveUrl.substring(mLiveUrl.lastIndexOf("/") + 1) + System.currentTimeMillis() + exName + ".xls";
+//                    ExcelManager excelManager = new ExcelManager();
+//                    OutputStream excelStream = new FileOutputStream(usersFilePath);
+//
+//                    boolean success = excelManager.toExcel(excelStream, mInfoList);
+//                    Log.d(TAG, "导出日志文件");
+//                    if (success) {
+//                        Log.d(TAG, "导出日志文件成功");
+//                    } else {
+//                        Log.d(TAG, "导出日志文件失败");
+//                    }
+//
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }).start();
+
+    }
 
     private void maybeRegisterReceiver() {
         Log.d(TAG, "maybeRegisterReceiver" + receiver);
